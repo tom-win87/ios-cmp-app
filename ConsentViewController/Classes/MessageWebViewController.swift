@@ -115,13 +115,13 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
         loadPrivacyManager()
     }
     
-    func cancelPMAction(consents: PMConsents?) {
+    func cancelPMAction(consents: GDPRPMConsents?) {
         webview.canGoBack ?
             goBackAndClosePrivacyManager():
             onConsentReady(gdprUUID: consentUUID, consents:consents)
     }
 
-    private func onConsentReady(gdprUUID: GDPRUUID, consents: PMConsents?) {
+    private func onConsentReady(gdprUUID: GDPRUUID, consents: GDPRPMConsents?) {
         consentDelegate?.onConsentReady?(gdprUUID: gdprUUID, userConsent: GDPRUserConsent(
             acceptedVendors: consents?.vendors.accepted ?? [],
             acceptedCategories: consents?.categories.accepted ?? [],
@@ -136,15 +136,15 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
         onMessageReady()
     }
     
-    func onAction(_ action: GDPRAction, consents: PMConsents?) {
-        consentDelegate?.onAction?(action, consents: consents)
+    func onAction(_ action: GDPRAction, gdprConsents: GDPRPMConsents?) {
+        consentDelegate?.onAction?(action, gdprConsents: gdprConsents)
         switch action.type {
         case .ShowPrivacyManager:
             showPrivacyManagerFromMessageAction()
         case .PMCancel:
-            cancelPMAction(consents: consents)
+            cancelPMAction(consents: gdprConsents)
         case .Dismiss:
-            onConsentReady(gdprUUID: consentUUID, consents: consents)
+            onConsentReady(gdprUUID: consentUUID, consents: gdprConsents)
         default:
             closeConsentUIIfOpen()
         }
@@ -155,7 +155,7 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
         if connectvityManager.isConnectedToNetwork() {
             webview.load(URLRequest(url: url))
         } else {
-            onError(error: NoInternetConnection())
+            onError(error: GDPRNoInternetConnection())
         }
     }
     
@@ -169,7 +169,7 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
     
     override func loadPrivacyManager() {
         guard let url = pmUrl() else {
-            onError(error: URLParsingError(urlString: "PMUrl"))
+            onError(error: GDPRURLParsingError(urlString: "PMUrl"))
             return
         }
         load(url: url)
@@ -187,7 +187,7 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
         return nil
     }
     
-    func getPMConsentsIfAny(_ payload: [String: Any]) -> PMConsents {
+    func getPMConsentsIfAny(_ payload: [String: Any]) -> GDPRPMConsents {
         guard
             let consents = payload["consents"] as? [String: Any],
             let vendors = consents["vendors"] as? [String: Any],
@@ -197,14 +197,14 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
             let acceptedPurposes = purposes["accepted"] as? [String],
             let rejectedPurposes = purposes["rejected"] as? [String]
         else {
-            return PMConsents(
-                vendors: PMConsent(accepted: [], rejected: []),
-                categories: PMConsent(accepted: [], rejected: [])
+            return GDPRPMConsents(
+                vendors: GDPRPMConsent(accepted: [], rejected: []),
+                categories: GDPRPMConsent(accepted: [], rejected: [])
             )
         }
-        return PMConsents(
-            vendors: PMConsent(accepted: acceptedVendors, rejected: rejectedVendors),
-            categories: PMConsent(accepted: acceptedPurposes, rejected: rejectedPurposes)
+        return GDPRPMConsents(
+            vendors: GDPRPMConsent(accepted: acceptedVendors, rejected: rejectedVendors),
+            categories: GDPRPMConsent(accepted: acceptedPurposes, rejected: rejectedPurposes)
         )
     }
     
@@ -222,7 +222,7 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
             let body = message.body as? [String: Any?],
             let name = body["name"] as? String
         else {
-            onError(error: MessageEventParsingError(message: Optional(message.body).debugDescription))
+            onError(error: GDPRMessageEventParsingError(message: Optional(message.body).debugDescription))
             return
         }
         
@@ -237,12 +237,12 @@ class MessageWebViewController: GDPRMessageViewController, WKUIDelegate, WKNavig
                     let actionTypeRaw = payload["type"] as? Int,
                     let actionType = GDPRActionType(rawValue: actionTypeRaw)
                 else {
-                    onError(error: MessageEventParsingError(message: Optional(message.body).debugDescription))
+                    onError(error: GDPRMessageEventParsingError(message: Optional(message.body).debugDescription))
                     return
                 }
-                onAction(GDPRAction(type: actionType, id: getChoiceId(payload)), consents: getPMConsentsIfAny(payload))
+                onAction(GDPRAction(type: actionType, id: getChoiceId(payload)), gdprConsents: getPMConsentsIfAny(payload))
             case "onError":
-                onError(error: WebViewError())
+                onError(error: GDPRWebViewError())
             default:
                 print(message.body)
         }
